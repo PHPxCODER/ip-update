@@ -1,13 +1,16 @@
-const express = require("express");
-const axios = require("axios");
-require("dotenv").config();
+import express, { Request, Response, NextFunction } from "express";
+import axios from "axios";
+import dotenv from "dotenv";
+
+dotenv.config();
+
 const app = express();
 const port = process.env.PORT || 5555;
 
-const dnsRecords = process.env.CF_DNS.split(',');
+const dnsRecords: string[] = process.env.CF_DNS?.split(",") || [];
 
 // Middleware to check the API key
-app.use((req, res, next) => {
+app.use((req: Request, res: Response, next: NextFunction) => {
     const apiKey = req.header("rdp-key") || req.query.api_key;
 
     if (!apiKey) {
@@ -22,9 +25,9 @@ app.use((req, res, next) => {
     }
 });
 
-app.get("/", async (req, res) => {
+app.get("/", async (req: Request, res: Response) => {
     try {
-        const response = await axios(`https://api.ipify.org?format=json`);
+        const response = await axios.get<{ ip: string }>("https://api.ipify.org?format=json");
         const ip = response.data.ip;
 
         const updateResults = await Promise.all(
@@ -33,7 +36,7 @@ app.get("/", async (req, res) => {
                     `https://api.cloudflare.com/client/v4/zones/${process.env.CF_ZONE}/dns_records/${dnsRecord}`,
                     {
                         headers: {
-                            "X-Auth-Email": process.env.CF_MAIL,
+                            "X-Auth-Email": process.env.CF_MAIL as string,
                             Authorization: `Bearer ${process.env.CF_AUTH}`,
                         },
                     }
@@ -44,15 +47,15 @@ app.get("/", async (req, res) => {
                 const update = await axios.put(
                     `https://api.cloudflare.com/client/v4/zones/${process.env.CF_ZONE}/dns_records/${dnsRecord}`,
                     {
-                        type: recordData.type,  // Keep the same record type (e.g., "A" record)
-                        name: recordData.name,  // Keep the same name
-                        content: ip,           // Update only the IP address
-                        ttl: recordData.ttl,   // Keep the same TTL
+                        type: recordData.type, // Keep the same record type (e.g., "A" record)
+                        name: recordData.name, // Keep the same name
+                        content: ip,          // Update only the IP address
+                        ttl: recordData.ttl,  // Keep the same TTL
                         proxied: recordData.proxied, // Keep the proxy setting
                     },
                     {
                         headers: {
-                            "X-Auth-Email": process.env.CF_MAIL,
+                            "X-Auth-Email": process.env.CF_MAIL as string,
                             Authorization: `Bearer ${process.env.CF_AUTH}`,
                         },
                     }
